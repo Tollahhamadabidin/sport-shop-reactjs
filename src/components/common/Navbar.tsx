@@ -10,7 +10,7 @@ export const Navbar: React.FC<{ onOpenCart: () => void }> = ({ onOpenCart }) => 
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2 font-black tracking-wider text-xl uppercase cursor-pointer">
           <Trophy className="w-6 h-6 text-amber-400" />
-          <span>Bidin Shop</span>
+          <span>sport Shop</span>
         </div>
 
         <button
