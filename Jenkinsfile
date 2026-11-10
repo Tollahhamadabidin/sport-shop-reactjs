@@ -5,43 +5,67 @@ pipeline {
         DH_IMAGE = "sport-shop"
         TAG = "v1.0.2026"
         FULL_IMAGE = "${DH_IMAGE}:${TAG}"
+        DEPLOY_ENV = ""
     }
 
     stages {
-        stage('Clone Code') {
+        stage('Verify Frontend (Node)') {
             steps {
-               
-                git branch: 'main', url: 'https://github.com/Tollahhamadabidin/sport-shop-reactjs.git'
+                echo "Verifying Frontend Environment..."
+                sh 'node -v'
+                sh 'npm -v'
             }
         }
 
-        stage('Build Image') {
+        stage('SonarQube Code Analysis') {
             steps {
-                sh """
-                    docker build -t ${DH_IMAGE}:${TAG} -f prod.Dockerfile .
-                """
-            }
-        }
-
-        stage('Push') {
-            steps {
-                
-                withCredentials([usernamePassword(credentialsId: 'DH_STAG', passwordVariable: 'PASS', usernameVariable: 'NAME')]) {
-                    sh """
-                        docker tag ${FULL_IMAGE} ${NAME}/${FULL_IMAGE}
-                        docker login -u ${NAME} -p ${PASS}
-                        docker push ${NAME}/${FULL_IMAGE}
-                    """
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQube') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Deployment Approval Gate') {
             steps {
-                sh """
-                    docker rm -f sport-shop-cont || true
-                    docker run -dp 3005:80 --name sport-shop-cont ${FULL_IMAGE}
-                """
+                script {
+                    DEPLOY_ENV = input(
+                        id: 'DeployGate',
+                        message: 'Approve Deployment?',
+                        parameters: [
+                            choice(
+                                name: 'Select deployment environment',
+                                choices: ['Staging', 'Production'],
+                                description: 'Choose target deployment environment'
+                            )
+                        ]
+                    )
+                    echo "Target Environment Selected: ${DEPLOY_ENV}"
+                }
+            }
+        }
+
+        stage('Execute Deployment') {
+            steps {
+                script {
+                    if (DEPLOY_ENV == 'Production') {
+                        echo "Executing Deployment to Production..."
+                        sh """
+                            docker build -t ${FULL_IMAGE} -f prod.Dockerfile .
+                            docker rm -f sport-shop-prod || true
+                            docker run -dp 3000:80 --name sport-shop-prod ${FULL_IMAGE}
+                        """
+                    } else if (DEPLOY_ENV == 'Staging') {
+                        echo "Executing Deployment to Staging..."
+                        sh """
+                            docker build -t ${FULL_IMAGE} -f prod.Dockerfile .
+                            docker rm -f sport-shop-staging || true
+                            docker run -dp 3005:80 --name sport-shop-staging ${FULL_IMAGE}
+                        """
+                    }
+                }
             }
         }
     }
