@@ -20,9 +20,15 @@ pipeline {
         stage('SonarQube Code Analysis') {
             steps {
                 script {
-                    def scannerHome = tool 'SonarScanner'
-                    withSonarQubeEnv('SonarQube') {
-                        sh "${scannerHome}/bin/sonar-scanner"
+                    def scannerHome = tool 'sonar-scanner'
+                    withSonarQubeEnv('sonarqube') {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                              -Dsonar.projectKey=sport-shop-reactjs \
+                              -Dsonar.projectName=sport-shop-reactjs \
+                              -Dsonar.sources=. \
+                              -Dsonar.exclusions=node_modules/**,dist/**,build/**
+                        """
                     }
                 }
             }
