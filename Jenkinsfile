@@ -5,7 +5,6 @@ pipeline {
         DH_IMAGE = "sport-shop"
         TAG = "v1.0.2026"
         FULL_IMAGE = "${DH_IMAGE}:${TAG}"
-        DEPLOY_ENV = ""
     }
 
     stages {
@@ -34,21 +33,29 @@ pipeline {
             }
         }
 
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('Deployment Approval Gate') {
             steps {
                 script {
-                    DEPLOY_ENV = input(
-                        id: 'DeployGate',
+                    env.DEPLOY_ENV = input(
                         message: 'Approve Deployment?',
+                        ok: 'Deploy Now',
                         parameters: [
                             choice(
-                                name: 'Select deployment environment',
+                                name: 'DEPLOY_TARGET',
                                 choices: ['Staging', 'Production'],
                                 description: 'Choose target deployment environment'
                             )
                         ]
                     )
-                    echo "Target Environment Selected: ${DEPLOY_ENV}"
+                    echo "Target Environment Selected: ${env.DEPLOY_ENV}"
                 }
             }
         }
@@ -56,14 +63,14 @@ pipeline {
         stage('Execute Deployment') {
             steps {
                 script {
-                    if (DEPLOY_ENV == 'Production') {
+                    if (env.DEPLOY_ENV == 'Production') {
                         echo "Executing Deployment to Production..."
                         sh """
                             docker build -t ${FULL_IMAGE} -f prod.Dockerfile .
                             docker rm -f sport-shop-prod || true
                             docker run -dp 3000:80 --name sport-shop-prod ${FULL_IMAGE}
                         """
-                    } else if (DEPLOY_ENV == 'Staging') {
+                    } else if (env.DEPLOY_ENV == 'Staging') {
                         echo "Executing Deployment to Staging..."
                         sh """
                             docker build -t ${FULL_IMAGE} -f prod.Dockerfile .
